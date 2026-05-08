@@ -1,0 +1,9 @@
+Meals: Up to $75/day allowed; over $75 requires manager approval.
+Hotels: Up to $250/night allowed; over $250 requires manager approval.
+Flights: Economy class only unless executive/manager approval is provided.
+Rideshare: Allowed for business travel, but receipt is required.
+Software: Purchases over $300 require pre-approval.
+Alcohol: Not reimbursable unless approved for client entertainment.
+Gifts: Gifts over $50 require manager approval.
+Late Submission: Expenses must be submitted within 30 days.
+Missing Receipt: Expenses over $25 require a receipt.

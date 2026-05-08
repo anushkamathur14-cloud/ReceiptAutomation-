@@ -1,0 +1,11 @@
+expense_id,employee_id,category,amount,currency,expense_date,submission_date,receipt_provided,manager_approval,pre_approval,flight_class,notes
+EXP-001,E-1001,Meals,18.75,USD,2026-04-01,2026-04-05,yes,no,no,,Team lunch
+EXP-002,E-1002,Meals,112.40,USD,2026-04-10,2026-04-11,yes,no,no,,Client dinner
+EXP-003,E-1002,Hotels,340.00,USD,2026-04-12,2026-04-13,yes,no,no,,Conference hotel
+EXP-004,E-1003,Rideshare,42.00,USD,2026-04-14,2026-04-14,no,no,no,,Airport transfer
+EXP-005,E-1004,Software,520.00,USD,2026-03-25,2026-03-26,yes,no,no,,Analytics tool
+EXP-006,E-1005,Alcohol,38.00,USD,2026-04-20,2026-04-21,yes,no,no,,Dinner bar tab
+EXP-007,E-1006,Gifts,95.00,USD,2026-03-01,2026-03-15,yes,no,no,,Vendor gift basket
+EXP-008,E-1007,Flights,780.00,USD,2026-04-16,2026-04-17,yes,yes,no,Business,Regional travel
+EXP-009,E-1008,Flights,620.00,USD,2026-04-16,2026-04-17,yes,no,no,Business,Upgrade purchase
+EXP-010,E-1009,Meals,40.00,USD,2026-02-01,2026-04-15,yes,no,no,,Submitted late
