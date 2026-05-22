@@ -77,6 +77,105 @@ Response:
 
 ---
 
+## Policy approval thresholds (Lovable)
+
+Managers can change the dollar/day limits used by the **Decide Agent** before running compliance.
+
+### Get form schema (labels, min, max, defaults)
+
+```
+GET /api/policy-thresholds/schema
+```
+
+### Get current thresholds for session
+
+```
+GET /api/session/{session_id}/policy-thresholds
+```
+
+Response:
+```json
+{
+  "thresholds": {
+    "meal_limit": 75,
+    "hotel_limit": 250,
+    "software_limit": 300,
+    "gift_limit": 50,
+    "late_submission_days": 30,
+    "receipt_required_over": 25
+  },
+  "fields": [
+    {
+      "key": "meal_limit",
+      "label": "Meals — daily limit ($)",
+      "description": "Over this amount requires manager approval.",
+      "type": "currency",
+      "min": 0,
+      "max": 10000,
+      "default": 75,
+      "value": 75
+    }
+  ]
+}
+```
+
+### Update thresholds (partial or full)
+
+```
+PUT /api/session/{session_id}/policy-thresholds
+Content-Type: application/json
+```
+
+Body (send only fields to change):
+
+```json
+{
+  "meal_limit": 100,
+  "hotel_limit": 300,
+  "receipt_required_over": 50
+}
+```
+
+Also supported: `PATCH` with the same body.
+
+After saving, call `POST /api/session/{id}/analyze` again so decisions use the new thresholds.
+
+`GET /api/session/{id}/dashboard` includes `policy_thresholds` with the same shape.
+
+### Lovable example
+
+```javascript
+const API = "https://YOUR-RAILWAY-URL";
+const sessionId = localStorage.getItem("sessionId");
+
+// Build form from schema
+const schema = await fetch(`${API}/api/policy-thresholds/schema`).then(r => r.json());
+
+// Save user edits
+await fetch(`${API}/api/session/${sessionId}/policy-thresholds`, {
+  method: "PUT",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    meal_limit: 100,
+    hotel_limit: 275,
+  }),
+});
+
+// Re-run compliance with new rules
+await fetch(`${API}/api/session/${sessionId}/analyze`, { method: "POST" });
+```
+
+| Field | Meaning |
+|-------|---------|
+| `meal_limit` | Meals over $ → needs review |
+| `hotel_limit` | Hotels over $/night → needs review |
+| `software_limit` | Software over $ → needs pre-approval |
+| `gift_limit` | Gifts over $ → needs review |
+| `late_submission_days` | Days after expense date → late |
+| `receipt_required_over` | Amount above which receipt is required |
+
+---
+
 ## Manager dashboard (Lovable / JSON)
 
 ```

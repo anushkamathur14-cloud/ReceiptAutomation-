@@ -6,6 +6,8 @@ from typing import Dict, List, Optional
 
 import pandas as pd
 
+from .policy_rules import PolicyConfig, default_policy_config, policy_config_from_dict, policy_config_to_dict
+
 
 def max_uploads_per_session() -> int:
     return int(os.getenv("MAX_UPLOADS_PER_SESSION", "2"))
@@ -18,6 +20,7 @@ class SessionData:
     results_df: Optional[pd.DataFrame] = None
     last_summary: Optional[dict] = None
     upload_count: int = 0
+    policy_thresholds: Optional[dict] = None
 
 
 _SESSIONS: Dict[str, SessionData] = {}
@@ -86,6 +89,20 @@ def entries_dataframe(session: SessionData) -> pd.DataFrame:
     if not session.entries:
         return pd.DataFrame()
     return pd.DataFrame(session.entries)
+
+
+def get_policy_config(session_id: str) -> PolicyConfig:
+    session = get_session(session_id)
+    if session.policy_thresholds:
+        return policy_config_from_dict(session.policy_thresholds)
+    return default_policy_config()
+
+
+def set_policy_thresholds(session_id: str, updates: dict) -> PolicyConfig:
+    session = get_session(session_id)
+    config = policy_config_from_dict(updates, base=get_policy_config(session_id))
+    session.policy_thresholds = policy_config_to_dict(config)
+    return config
 
 
 def set_results(

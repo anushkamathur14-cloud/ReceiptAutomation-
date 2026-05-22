@@ -9,23 +9,36 @@ from pathlib import Path
 from typing import Optional
 
 import pandas as pd
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse
 
 from .main import run_pipeline
 from .manager_dashboard import MANAGER_DASHBOARD_HTML, build_dashboard_payload
 from .receipt_scanner import scan_receipt_file
+from .policy_rules import default_policy_config, thresholds_response, thresholds_schema
 from .session_store import (
     add_entry,
     entries_dataframe,
     ensure_upload_allowed,
+    get_policy_config,
     get_session,
     import_csv_entries,
     record_upload,
+    set_policy_thresholds,
     set_results,
     upload_quota,
 )
+
+
+class PolicyThresholdsUpdate(BaseModel):
+    meal_limit: Optional[float] = Field(None, ge=0, le=10000)
+    hotel_limit: Optional[float] = Field(None, ge=0, le=50000)
+    software_limit: Optional[float] = Field(None, ge=0, le=100000)
+    gift_limit: Optional[float] = Field(None, ge=0, le=10000)
+    late_submission_days: Optional[int] = Field(None, ge=1, le=365)
+    receipt_required_over: Optional[float] = Field(None, ge=0, le=10000)
 
 ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_EXPENSES = ROOT / "data" / "sample_expenses.csv"
@@ -129,7 +142,45 @@ def session_dashboard(session_id: str) -> dict:
         excel_url=_session_excel_url(session_id),
     )
     payload["upload_quota"] = upload_quota(session_id)
+    payload["policy_thresholds"] = thresholds_response(get_policy_config(session_id))
     return payload
+
+
+@app.get("/api/policy-thresholds/schema")
+def policy_thresholds_schema() -> dict:
+    """Field metadata for Lovable forms (labels, min, max, defaults)."""
+    return thresholds_schema()
+
+
+@app.get("/api/session/{session_id}/policy-thresholds")
+def get_session_policy_thresholds(session_id: str) -> dict:
+    return thresholds_response(get_policy_config(session_id))
+
+
+@app.put("/api/session/{session_id}/policy-thresholds")
+def update_session_policy_thresholds(
+    session_id: str,
+    body: PolicyThresholdsUpdate = Body(...),
+) -> dict:
+    updates = body.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide at least one threshold field to update.",
+        )
+    config = set_policy_thresholds(session_id, updates)
+    return {
+        **thresholds_response(config),
+        "message": "Thresholds updated. Re-run compliance to apply new rules.",
+    }
+
+
+@app.patch("/api/session/{session_id}/policy-thresholds")
+def patch_session_policy_thresholds(
+    session_id: str,
+    body: PolicyThresholdsUpdate = Body(...),
+) -> dict:
+    return update_session_policy_thresholds(session_id, body)
 
 
 @app.get("/api/session/{session_id}/entries")
@@ -255,7 +306,12 @@ def analyze_session(session_id: str) -> dict:
     _entries_to_csv(expenses_df, expenses_path)
 
     try:
-        result = run_pipeline(expenses_path, _default_policy_path(), output_dir)
+        result = run_pipeline(
+            expenses_path,
+            _default_policy_path(),
+            output_dir,
+            policy_config=get_policy_config(session_id),
+        )
         decisions_df = pd.read_csv(output_dir / "decisions.csv")
         merged = expenses_df.merge(decisions_df, on="expense_id", how="left")
         set_results(session_id, run_id, merged, summary=result["summary"])
@@ -268,6 +324,7 @@ def analyze_session(session_id: str) -> dict:
             "summary": result["summary"],
             "excel_url": excel_url,
             "entries": merged.to_dict(orient="records"),
+            "policy_thresholds": thresholds_response(get_policy_config(session_id)),
         }
     except Exception as exc:
         shutil.rmtree(work_dir, ignore_errors=True)

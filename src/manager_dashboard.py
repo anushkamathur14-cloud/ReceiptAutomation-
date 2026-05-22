@@ -269,6 +269,7 @@ MANAGER_DASHBOARD_HTML = """<!DOCTYPE html>
       <p id="subtitle">Topline overview · exceptions · recommended actions</p>
     </div>
     <div class="topbar-actions">
+      <button class="btn btn-ghost" id="togglePolicy">Policy thresholds</button>
       <button class="btn btn-ghost" id="toggleTools">+ Add expenses</button>
       <button class="btn btn-ghost" id="loadSampleBtn">Load demo data</button>
       <button class="btn btn-primary" id="analyzeBtn">Run compliance</button>
@@ -277,6 +278,20 @@ MANAGER_DASHBOARD_HTML = """<!DOCTYPE html>
   </header>
 
   <main>
+    <section class="tools" id="policyPanel">
+      <div class="tools-inner">
+        <h2 style="font-size:1rem;margin-bottom:0.5rem;">Approval thresholds</h2>
+        <p style="font-size:0.85rem;color:#64748b;margin-bottom:0.75rem;">
+          Adjust limits used by the Decide Agent. Save, then re-run compliance.
+        </p>
+        <div id="policyFields" class="row" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;"></div>
+        <div style="margin-top:1rem;display:flex;gap:0.5rem;">
+          <button class="btn btn-primary" id="savePolicyBtn" type="button">Save thresholds</button>
+          <button class="btn btn-outline" id="resetPolicyBtn" type="button">Reset to defaults</button>
+        </div>
+      </div>
+    </section>
+
     <section class="tools" id="toolsPanel">
       <div class="tools-inner">
         <h2 style="font-size:1rem;margin-bottom:0.5rem;">Add expenses</h2>
@@ -465,6 +480,63 @@ MANAGER_DASHBOARD_HTML = """<!DOCTYPE html>
       const data = await res.json();
       renderDashboard(data);
     }
+
+    function renderPolicyFields(policy) {
+      const wrap = document.getElementById("policyFields");
+      const fields = policy?.fields || [];
+      wrap.innerHTML = fields.map(f => `
+        <div>
+          <label style="font-size:0.8rem;color:#64748b;">${f.label}</label>
+          <input type="number" data-key="${f.key}" value="${f.value}"
+            min="${f.min}" max="${f.max}" step="${f.type === 'integer' ? 1 : 0.01}"
+            style="width:100%;margin-top:0.25rem;padding:0.5rem;border:1px solid #ccc;border-radius:6px;" />
+          <span style="font-size:0.72rem;color:#94a3b8;">${f.description || ''}</span>
+        </div>
+      `).join("");
+    }
+
+    async function loadPolicyThresholds() {
+      const res = await fetch(`/api/session/${sessionId}/policy-thresholds`);
+      const data = await res.json();
+      renderPolicyFields(data);
+    }
+
+    document.getElementById("togglePolicy").onclick = () => {
+      document.getElementById("policyPanel").classList.toggle("open");
+      loadPolicyThresholds();
+    };
+
+    document.getElementById("savePolicyBtn").onclick = async () => {
+      const body = {};
+      document.querySelectorAll("#policyFields input[data-key]").forEach(inp => {
+        const key = inp.getAttribute("data-key");
+        body[key] = inp.step === "1" ? parseInt(inp.value, 10) : parseFloat(inp.value);
+      });
+      const res = await fetch(`/api/session/${sessionId}/policy-thresholds`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) return toast(data.detail || "Save failed");
+      toast(data.message || "Thresholds saved");
+      renderPolicyFields(data);
+    };
+
+    document.getElementById("resetPolicyBtn").onclick = async () => {
+      const schema = await (await fetch("/api/policy-thresholds/schema")).json();
+      const body = {};
+      (schema.fields || []).forEach(f => { body[f.key] = f.default; });
+      const res = await fetch(`/api/session/${sessionId}/policy-thresholds`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) return toast("Reset failed");
+      toast("Reset to default thresholds");
+      renderPolicyFields(data);
+    };
 
     document.getElementById("toggleTools").onclick = () => {
       document.getElementById("toolsPanel").classList.toggle("open");

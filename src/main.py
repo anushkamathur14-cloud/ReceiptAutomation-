@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Optional
 
 import pandas as pd
 
@@ -13,6 +14,7 @@ from .agents import (
     ValidateAgent,
     decisions_to_dataframe,
 )
+from .policy_rules import PolicyConfig, default_policy_config
 from .reporting import write_outputs
 
 
@@ -24,12 +26,18 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def run_pipeline(expenses_path: Path, policy_path: Path, output_dir: Path) -> dict:
+def run_pipeline(
+    expenses_path: Path,
+    policy_path: Path,
+    output_dir: Path,
+    policy_config: Optional[PolicyConfig] = None,
+) -> dict:
     expenses_df = pd.read_csv(expenses_path)
+    config = policy_config or default_policy_config()
 
     validate_agent = ValidateAgent()
     policy_agent = RetrievePolicyAgent()
-    decide_agent = DecideAgent()
+    decide_agent = DecideAgent(config)
     explain_agent = ExplainAgent()
     summarize_agent = SummarizeAgent()
 
