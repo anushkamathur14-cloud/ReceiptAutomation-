@@ -11,6 +11,7 @@ class SessionData:
     entries: List[dict] = field(default_factory=list)
     last_run_id: Optional[str] = None
     results_df: Optional[pd.DataFrame] = None
+    last_summary: Optional[dict] = None
 
 
 _SESSIONS: Dict[str, SessionData] = {}
@@ -59,7 +60,11 @@ def entries_dataframe(session: SessionData) -> pd.DataFrame:
     return pd.DataFrame(session.entries)
 
 
-def set_results(session_id: str, run_id: str, df: pd.DataFrame) -> None:
+def set_results(
+    session_id: str, run_id: str, df: pd.DataFrame, summary: Optional[dict] = None
+) -> None:
     session = get_session(session_id)
     session.last_run_id = run_id
     session.results_df = df
+    if summary is not None:
+        session.last_summary = summary

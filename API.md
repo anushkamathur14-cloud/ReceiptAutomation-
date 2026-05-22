@@ -62,6 +62,16 @@ Response:
 
 ---
 
+## Manager dashboard (Lovable / JSON)
+
+```
+GET /api/session/{session_id}/dashboard
+```
+
+Returns KPIs, decision breakdown, spend by category, manager action items, priority exceptions, and full entries — same data as the `/` manager UI.
+
+---
+
 ## List entries (table data)
 
 ```
