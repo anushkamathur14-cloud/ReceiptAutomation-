@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
 import pandas as pd
+
+
+def max_uploads_per_session() -> int:
+    return int(os.getenv("MAX_UPLOADS_PER_SESSION", "2"))
 
 
 @dataclass
@@ -12,6 +17,7 @@ class SessionData:
     last_run_id: Optional[str] = None
     results_df: Optional[pd.DataFrame] = None
     last_summary: Optional[dict] = None
+    upload_count: int = 0
 
 
 _SESSIONS: Dict[str, SessionData] = {}
@@ -21,6 +27,28 @@ def get_session(session_id: str) -> SessionData:
     if session_id not in _SESSIONS:
         _SESSIONS[session_id] = SessionData()
     return _SESSIONS[session_id]
+
+
+def upload_quota(session_id: str) -> Dict[str, int]:
+    session = get_session(session_id)
+    limit = max_uploads_per_session()
+    used = session.upload_count
+    return {"limit": limit, "used": used, "remaining": max(0, limit - used)}
+
+
+def ensure_upload_allowed(session_id: str) -> None:
+    if upload_quota(session_id)["remaining"] <= 0:
+        limit = max_uploads_per_session()
+        raise ValueError(
+            f"Upload limit reached. Each user may upload at most {limit} file(s) "
+            f"(receipt or CSV). Demo sample data does not count toward this limit."
+        )
+
+
+def record_upload(session_id: str) -> Dict[str, int]:
+    session = get_session(session_id)
+    session.upload_count += 1
+    return upload_quota(session_id)
 
 
 def next_expense_id(session: SessionData, prefix: str = "EXP") -> str:

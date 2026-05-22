@@ -19,9 +19,12 @@ from .receipt_scanner import scan_receipt_file
 from .session_store import (
     add_entry,
     entries_dataframe,
+    ensure_upload_allowed,
     get_session,
     import_csv_entries,
+    record_upload,
     set_results,
+    upload_quota,
 )
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -120,11 +123,13 @@ def _session_excel_url(session_id: str) -> Optional[str]:
 def session_dashboard(session_id: str) -> dict:
     session = get_session(session_id)
     df = session.results_df if session.results_df is not None else entries_dataframe(session)
-    return build_dashboard_payload(
+    payload = build_dashboard_payload(
         df,
         summary=session.last_summary,
         excel_url=_session_excel_url(session_id),
     )
+    payload["upload_quota"] = upload_quota(session_id)
+    return payload
 
 
 @app.get("/api/session/{session_id}/entries")
@@ -146,6 +151,7 @@ def clear_entries(session_id: str) -> dict:
     session.results_df = None
     session.last_run_id = None
     session.last_summary = None
+    session.upload_count = 0
     return {"cleared": True}
 
 
@@ -162,6 +168,11 @@ async def scan_receipt(
     ext = Path(receipt.filename).suffix.lower()
     if ext not in allowed:
         raise HTTPException(status_code=400, detail="Supported: PNG, JPG, PDF, WEBP, GIF, BMP.")
+
+    try:
+        ensure_upload_allowed(session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
 
     work_dir = Path(tempfile.mkdtemp(prefix="receipt_"))
     receipt_path = work_dir / Path(receipt.filename).name
@@ -188,10 +199,12 @@ async def scan_receipt(
             "agent_reasoning": scanned.get("agent_reasoning", ""),
         }
         saved = add_entry(session_id, entry)
+        quota = record_upload(session_id)
         return {
             "entry": saved,
             "raw_text_preview": scanned.get("raw_text", "")[:500],
             "analysis_method": scanned.get("analysis_method"),
+            "upload_quota": quota,
         }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -202,10 +215,17 @@ async def scan_receipt(
 @app.post("/api/session/{session_id}/import-csv")
 async def import_csv(session_id: str, file: UploadFile = File(...)) -> dict:
     try:
+        ensure_upload_allowed(session_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
+    try:
         content = await file.read()
         df = pd.read_csv(io.BytesIO(content))
         count = import_csv_entries(session_id, df)
-        return {"imported": count}
+        quota = record_upload(session_id)
+        return {"imported": count, "upload_quota": quota}
+    except ValueError as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Invalid CSV: {exc}") from exc
 

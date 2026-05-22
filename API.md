@@ -26,6 +26,21 @@ Generate a `session_id` on the client (e.g. `crypto.randomUUID()`) and send it o
 
 ---
 
+## Upload limit
+
+Each user session is limited to **2 file uploads** (receipt scan or CSV import combined).
+
+- `POST /api/session/{id}/scan-receipt` — counts as 1 upload
+- `POST /api/session/{id}/import-csv` — counts as 1 upload
+- `POST /api/session/{id}/load-sample` — does **not** count (demo only)
+
+When limit is reached, API returns **429** with a clear error message.  
+`GET /api/session/{id}/dashboard` includes `upload_quota`: `{ "limit": 2, "used": 1, "remaining": 1 }`.
+
+Override via env: `MAX_UPLOADS_PER_SESSION=2`
+
+---
+
 ## Receipt scan (LLM agent)
 
 ```

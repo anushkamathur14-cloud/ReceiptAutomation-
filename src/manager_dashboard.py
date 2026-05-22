@@ -4,6 +4,8 @@ from typing import Any, Dict, List, Optional
 
 import pandas as pd
 
+from .session_store import max_uploads_per_session
+
 
 def _safe_float(val) -> float:
     try:
@@ -42,6 +44,11 @@ def build_dashboard_payload(
             "summary": summary,
             "excel_url": excel_url,
             "analyzed": False,
+            "upload_quota": {
+                "limit": max_uploads_per_session(),
+                "used": 0,
+                "remaining": max_uploads_per_session(),
+            },
         }
 
     has_decisions = "decision" in df.columns
@@ -273,6 +280,7 @@ MANAGER_DASHBOARD_HTML = """<!DOCTYPE html>
     <section class="tools" id="toolsPanel">
       <div class="tools-inner">
         <h2 style="font-size:1rem;margin-bottom:0.5rem;">Add expenses</h2>
+        <p id="uploadQuota" style="font-size:0.85rem;color:#64748b;margin-bottom:0.5rem;"></p>
         <div class="row">
           <div>
             <label style="font-size:0.8rem;color:#64748b;">Receipt (scan with AI)</label><br/>
@@ -438,6 +446,18 @@ MANAGER_DASHBOARD_HTML = """<!DOCTYPE html>
       document.getElementById("subtitle").textContent = data.analyzed
         ? "Compliance review complete · " + k.total_expenses + " expenses · $" + k.total_amount.toLocaleString() + " total"
         : "Data loaded · run compliance to see decisions and actions";
+
+      const q = data.upload_quota || { limit: 2, used: 0, remaining: 2 };
+      const quotaEl = document.getElementById("uploadQuota");
+      const atLimit = q.remaining <= 0;
+      quotaEl.textContent = atLimit
+        ? `Upload limit reached (${q.used}/${q.limit}). Use Load demo data or clear session.`
+        : `Uploads: ${q.used} of ${q.limit} used (${q.remaining} remaining per user)`;
+      quotaEl.style.color = atLimit ? "#c62828" : "#64748b";
+      document.getElementById("scanBtn").disabled = atLimit;
+      document.getElementById("importCsvBtn").disabled = atLimit;
+      document.getElementById("receiptFile").disabled = atLimit;
+      document.getElementById("csvFile").disabled = atLimit;
     };
 
     async function refreshDashboard() {
