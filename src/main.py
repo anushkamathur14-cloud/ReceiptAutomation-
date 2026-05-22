@@ -24,7 +24,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def run_pipeline(expenses_path: Path, policy_path: Path, output_dir: Path) -> None:
+def run_pipeline(expenses_path: Path, policy_path: Path, output_dir: Path) -> dict:
     expenses_df = pd.read_csv(expenses_path)
 
     validate_agent = ValidateAgent()
@@ -41,6 +41,15 @@ def run_pipeline(expenses_path: Path, policy_path: Path, output_dir: Path) -> No
     decisions_df = decisions_to_dataframe(explained)
 
     write_outputs(output_dir, decisions_df, summary)
+    return {
+        "summary": summary,
+        "output_dir": str(output_dir),
+        "files": {
+            "decisions_csv": str(output_dir / "decisions.csv"),
+            "summary_json": str(output_dir / "summary.json"),
+            "manager_report_pdf": str(output_dir / "manager_report.pdf"),
+        },
+    }
 
 
 def main() -> None:

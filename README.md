@@ -72,6 +72,21 @@ Generated in the output directory:
 - `summary.json`
 - `manager_report.pdf`
 
+## Deploy on Railway
+
+This repo includes a web API so Railway can run it as a service:
+
+- `Dockerfile` — build image
+- `railway.toml` — Railway build/deploy settings
+- `src/app.py` — FastAPI server
+
+After deploy:
+
+1. Open your Railway public URL (generate domain in **Settings → Networking**).
+2. Visit `/` or `/health` to confirm the service is up.
+3. Try `/api/sample-run` for a demo run.
+4. Use `/docs` to upload your own CSV + policy via `POST /api/run`.
+
 ## Notes
 
 - This is a deterministic rule-engine baseline designed for auditability.

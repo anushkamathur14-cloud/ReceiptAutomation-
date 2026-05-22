@@ -2,3 +2,6 @@ pandas
 pydantic
 pypdf
 reportlab
+fastapi
+uvicorn[standard]
+python-multipart
