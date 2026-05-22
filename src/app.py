@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import os
 import shutil
 import tempfile
 import uuid
@@ -8,7 +9,8 @@ from pathlib import Path
 
 import pandas as pd
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
 
 from .excel_export import write_expense_workbook
 from .main import run_pipeline
@@ -30,6 +32,15 @@ app = FastAPI(
     title="Expense Receipt Compliance Bot",
     description="Upload receipts, scan, review entries, export Excel",
     version="2.0.0",
+)
+
+_cors_origins = os.getenv("CORS_ORIGINS", "*")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in _cors_origins.split(",") if o.strip()],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 _RUNS: dict[str, Path] = {}

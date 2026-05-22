@@ -80,6 +80,12 @@ Generated in the output directory:
 - `summary.json`
 - `manager_report.pdf`
 
+## Frontend on Lovable
+
+The backend is API-only friendly. See **[API.md](./API.md)** for endpoints, request shapes, and a fetch example. Set `CORS_ORIGINS` on Railway to your Lovable app URL.
+
+Built-in HTML UI at `/` remains for quick testing; you can replace it with your Lovable app.
+
 ## Web app (receipt scan + table + Excel)
 
 Open `/` on your local or Railway URL:
