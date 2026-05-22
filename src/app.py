@@ -27,16 +27,27 @@ app = FastAPI(
 def home() -> str:
     return """
     <html>
-      <head><title>Receipt Automation</title></head>
-      <body style="font-family: sans-serif; max-width: 720px; margin: 2rem auto;">
+      <head>
+        <title>Receipt Automation</title>
+        <style>
+          body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+          .ok { background: #e8f5e9; border: 1px solid #4caf50; padding: 1rem; border-radius: 8px; }
+          a { color: #1565c0; }
+          code { background: #f5f5f5; padding: 2px 6px; border-radius: 4px; }
+          li { margin: 0.5rem 0; }
+        </style>
+      </head>
+      <body>
+        <div class="ok"><strong>Deployed and running.</strong> You are viewing the live app.</div>
         <h1>Expense Receipt Compliance Bot</h1>
-        <p>Service is running. Use the endpoints below:</p>
+        <p>Try these links on this same URL (your Railway domain):</p>
         <ul>
-          <li><a href="/health">/health</a> — health check</li>
-          <li><a href="/docs">/docs</a> — interactive API docs</li>
-          <li><code>POST /api/run</code> — upload expenses CSV + policy file</li>
-          <li><a href="/api/sample-run">/api/sample-run</a> — run bundled sample data</li>
+          <li><a href="/health">/health</a> — should show <code>{"status":"ok"}</code></li>
+          <li><a href="/api/sample-run">/api/sample-run</a> — run demo and get results</li>
+          <li><a href="/docs">/docs</a> — upload your CSV + policy</li>
         </ul>
+        <p><strong>Not seeing this on Railway?</strong> Open your service → <strong>Settings</strong> →
+        <strong>Networking</strong> → <strong>Generate Domain</strong>, then open that public URL.</p>
       </body>
     </html>
     """
