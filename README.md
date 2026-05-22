@@ -79,21 +79,39 @@ Generated in the output directory:
 - `decisions.csv`
 - `summary.json`
 - `manager_report.pdf`
+- `expense_details.xlsx`
 
 ## Frontend on Lovable
 
-The backend is API-only friendly. See **[API.md](./API.md)** for endpoints, request shapes, and a fetch example. Set `CORS_ORIGINS` on Railway to your Lovable app URL.
+The backend is API-only friendly. See **[API.md](./API.md)** for all endpoints.
 
-Built-in HTML UI at `/` remains for quick testing; you can replace it with your Lovable app.
+| Feature | API |
+|---------|-----|
+| Manager dashboard data | `GET /api/session/{id}/dashboard` |
+| Edit approval thresholds | `PUT /api/session/{id}/policy-thresholds` |
+| Receipt scan (LLM agent) | `POST /api/session/{id}/scan-receipt` |
+| Run compliance | `POST /api/session/{id}/analyze` |
+| Download Excel | `GET /api/runs/{run_id}/expense_details.xlsx` |
 
-## Web app (receipt scan + table + Excel)
+Set `CORS_ORIGINS` on Railway to your Lovable app URL (e.g. `https://your-app.lovable.app`).
 
-Open `/` on your local or Railway URL:
+## Manager dashboard (deployed at `/`)
 
-1. **Upload & scan receipt** — PNG/JPG/PDF; OCR extracts amount, date, vendor, category.
-2. **Table** — all entries (scanned + imported CSV).
-3. **Run compliance check** — applies policy rules and fills Decision / Risk / Reason columns.
-4. **Download Excel** — `expense_details.xlsx` with Expense Details, Compliance Decisions, and Summary sheets.
+Single-page managerial review:
+
+- Topline KPIs (spend, approved, needs review, rejected, high risk)
+- Decision breakdown & spend by category
+- Manager action items & priority exceptions
+- Full expense table + Excel export
+- **Policy thresholds** panel — amend meal/hotel/software/gift/receipt/late limits
+- **2 uploads per user** (receipt or CSV); demo sample load is unlimited
+
+## Web app flows
+
+1. **Load demo data** or upload receipts (max 2 per session).
+2. **Adjust policy thresholds** (optional).
+3. **Run compliance** — all agents run; table updates with decisions.
+4. **Download Excel** — multi-sheet workbook for finance/managers.
 
 ## Deploy on Railway
 
