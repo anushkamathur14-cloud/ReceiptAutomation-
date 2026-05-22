@@ -40,7 +40,7 @@ def run_pipeline(expenses_path: Path, policy_path: Path, output_dir: Path) -> di
     summary = summarize_agent.run(explained)
     decisions_df = decisions_to_dataframe(explained)
 
-    write_outputs(output_dir, decisions_df, summary)
+    write_outputs(output_dir, decisions_df, summary, expenses_df=expenses_df)
     return {
         "summary": summary,
         "output_dir": str(output_dir),
@@ -48,6 +48,7 @@ def run_pipeline(expenses_path: Path, policy_path: Path, output_dir: Path) -> di
             "decisions_csv": str(output_dir / "decisions.csv"),
             "summary_json": str(output_dir / "summary.json"),
             "manager_report_pdf": str(output_dir / "manager_report.pdf"),
+            "expense_details_xlsx": str(output_dir / "expense_details.xlsx"),
         },
     }
 

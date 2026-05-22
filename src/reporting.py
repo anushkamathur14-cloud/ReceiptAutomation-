@@ -10,11 +10,26 @@ from reportlab.lib.units import inch
 from reportlab.pdfgen import canvas
 
 
-def write_outputs(output_dir: Path, decisions_df: pd.DataFrame, summary: Dict) -> None:
+def write_outputs(
+    output_dir: Path,
+    decisions_df: pd.DataFrame,
+    summary: Dict,
+    expenses_df: pd.DataFrame | None = None,
+) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     decisions_df.to_csv(output_dir / "decisions.csv", index=False)
     (output_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     write_manager_pdf(output_dir / "manager_report.pdf", decisions_df, summary)
+
+    if expenses_df is not None:
+        from .excel_export import write_expense_workbook
+
+        write_expense_workbook(
+            output_dir / "expense_details.xlsx",
+            expenses_df,
+            decisions_df,
+            summary,
+        )
 
 
 def write_manager_pdf(path: Path, decisions_df: pd.DataFrame, summary: Dict) -> None:

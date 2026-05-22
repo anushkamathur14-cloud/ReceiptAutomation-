@@ -72,6 +72,15 @@ Generated in the output directory:
 - `summary.json`
 - `manager_report.pdf`
 
+## Web app (receipt scan + table + Excel)
+
+Open `/` on your local or Railway URL:
+
+1. **Upload & scan receipt** — PNG/JPG/PDF; OCR extracts amount, date, vendor, category.
+2. **Table** — all entries (scanned + imported CSV).
+3. **Run compliance check** — applies policy rules and fills Decision / Risk / Reason columns.
+4. **Download Excel** — `expense_details.xlsx` with Expense Details, Compliance Decisions, and Summary sheets.
+
 ## Deploy on Railway
 
 This repo includes a web API so Railway can run it as a service:
