@@ -1,15 +1,87 @@
 from __future__ import annotations
 
+import json
 from dataclasses import asdict
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 import pandas as pd
 from pypdf import PdfReader
 
+from .llm_client import chat_json, is_llm_configured
 from .models import Decision, DecisionResult, ExpenseRow
 from .policy_rules import PolicyConfig, default_policy_config, rule_catalog
+
+
+RECEIPT_ANALYSIS_SYSTEM = """You are the Receipt Analysis Agent for an enterprise expense compliance system.
+Extract structured expense fields from receipt text (and image if provided).
+Return ONLY valid JSON with these keys:
+- vendor (string)
+- category (one of: Meals, Hotels, Flights, Rideshare, Software, Alcohol, Gifts, Other)
+- amount (number, total paid)
+- currency (string, e.g. USD)
+- expense_date (ISO date YYYY-MM-DD if possible, else best estimate)
+- notes (short plain-English summary of the purchase)
+- confidence (high | medium | low)
+- agent_reasoning (1-2 sentences explaining your extraction)
+Use business expense categories. If alcohol is visible, category must be Alcohol."""
+
+
+class ReceiptAnalysisAgent:
+    """Agent 0: LLM-powered receipt understanding (falls back to OCR heuristics)."""
+
+    def run(self, receipt_path: Path, employee_id: str = "") -> dict:
+        from .receipt_scanner import extract_text_from_file, parse_receipt_text
+
+        ocr_text = extract_text_from_file(receipt_path)
+        if not ocr_text.strip():
+            ocr_text = f"Receipt filename: {receipt_path.name}"
+
+        if is_llm_configured():
+            try:
+                parsed = self._analyze_with_llm(receipt_path, ocr_text, employee_id)
+                parsed["analysis_method"] = "llm_agent"
+                parsed["receipt_filename"] = receipt_path.name
+                return parsed
+            except Exception as exc:
+                parsed = parse_receipt_text(ocr_text, receipt_path.name)
+                parsed["analysis_method"] = "ocr_fallback"
+                parsed["llm_error"] = str(exc)
+        else:
+            parsed = parse_receipt_text(ocr_text, receipt_path.name)
+            parsed["analysis_method"] = "ocr_rules"
+
+        parsed["receipt_filename"] = receipt_path.name
+        parsed["employee_id"] = employee_id or parsed.get("employee_id", "E-SCAN")
+        return parsed
+
+    def _analyze_with_llm(self, receipt_path: Path, ocr_text: str, employee_id: str) -> dict:
+        user_prompt = (
+            f"Employee ID: {employee_id or 'E-SCAN'}\n"
+            f"Receipt filename: {receipt_path.name}\n\n"
+            f"OCR text from receipt:\n{ocr_text[:6000]}"
+        )
+        data = chat_json(RECEIPT_ANALYSIS_SYSTEM, user_prompt, image_path=receipt_path)
+        today = date.today().isoformat()
+        amount = float(data.get("amount") or 0)
+        return {
+            "employee_id": employee_id or "E-SCAN",
+            "category": str(data.get("category") or "Other"),
+            "amount": round(amount, 2),
+            "currency": str(data.get("currency") or "USD"),
+            "expense_date": str(data.get("expense_date") or today),
+            "submission_date": today,
+            "receipt_provided": "yes",
+            "manager_approval": "no",
+            "pre_approval": "no",
+            "flight_class": "",
+            "notes": str(data.get("notes") or f"LLM analyzed receipt: {data.get('vendor', 'Unknown')}"),
+            "vendor": str(data.get("vendor") or "Unknown"),
+            "scan_confidence": str(data.get("confidence") or "medium"),
+            "agent_reasoning": str(data.get("agent_reasoning") or ""),
+            "raw_text": ocr_text[:2000],
+        }
 
 
 class ValidateAgent:
@@ -160,10 +232,60 @@ class DecideAgent:
 
 
 class ExplainAgent:
+    EXPLAIN_SYSTEM = """You are the Explain Agent for expense compliance.
+Given policy rule codes and decisions, write clear plain-English explanations for managers.
+Return JSON: {"explanations": [{"expense_id": "...", "reason_text": "..."}]}"""
+
     def run(self, decisions: List[DecisionResult], rules: Dict[str, str]) -> List[DecisionResult]:
+        if is_llm_configured() and decisions:
+            try:
+                return self._run_with_llm(decisions, rules)
+            except Exception:
+                pass
+        return self._run_rules_only(decisions, rules)
+
+    def _run_rules_only(
+        self, decisions: List[DecisionResult], rules: Dict[str, str]
+    ) -> List[DecisionResult]:
         enriched: List[DecisionResult] = []
         for d in decisions:
             text = rules.get(d.reason_code, "Policy evaluation result generated.")
+            enriched.append(
+                DecisionResult(
+                    expense_id=d.expense_id,
+                    decision=d.decision,
+                    risk_score=d.risk_score,
+                    reason_code=d.reason_code,
+                    reason_text=text,
+                )
+            )
+        return enriched
+
+    def _run_with_llm(
+        self, decisions: List[DecisionResult], rules: Dict[str, str]
+    ) -> List[DecisionResult]:
+        payload = [
+            {
+                "expense_id": d.expense_id,
+                "decision": d.decision.value,
+                "reason_code": d.reason_code,
+                "risk_score": d.risk_score,
+                "policy_rule": rules.get(d.reason_code, ""),
+            }
+            for d in decisions
+        ]
+        user_prompt = f"Explain these compliance decisions:\n{json.dumps(payload, indent=2)}"
+        data = chat_json(self.EXPLAIN_SYSTEM, user_prompt)
+        explanation_map = {
+            item["expense_id"]: item.get("reason_text", "")
+            for item in data.get("explanations", [])
+            if item.get("expense_id")
+        }
+        enriched: List[DecisionResult] = []
+        for d in decisions:
+            text = explanation_map.get(d.expense_id) or rules.get(
+                d.reason_code, "Policy evaluation result generated."
+            )
             enriched.append(
                 DecisionResult(
                     expense_id=d.expense_id,

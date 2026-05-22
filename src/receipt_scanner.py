@@ -128,11 +128,8 @@ def parse_receipt_text(text: str, filename: str = "") -> dict:
     }
 
 
-def scan_receipt_file(path: Path) -> dict:
-    text = extract_text_from_file(path)
-    if not text.strip():
-        text = f"Receipt file: {path.name}"
-    parsed = parse_receipt_text(text, path.name)
-    parsed["receipt_filename"] = path.name
-    parsed["scan_confidence"] = "high" if parsed["amount"] > 0 and len(text) > 20 else "low"
-    return parsed
+def scan_receipt_file(path: Path, employee_id: str = "") -> dict:
+    """Run Receipt Analysis Agent (LLM if configured, else OCR rules)."""
+    from .agents import ReceiptAnalysisAgent
+
+    return ReceiptAnalysisAgent().run(path, employee_id=employee_id)

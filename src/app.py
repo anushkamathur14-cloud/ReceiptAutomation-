@@ -103,7 +103,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <body>
   <header>
     <h1>Expense Receipt Compliance Bot</h1>
-    <p>Upload receipts to scan, review all entries, run compliance, download Excel.</p>
+    <p>Receipt Analysis Agent (LLM) + 5 compliance agents — scan, review, export Excel.</p>
   </header>
   <main>
     <div class="card">
@@ -117,7 +117,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <label>Employee ID (optional)</label>
           <input type="text" id="employeeId" placeholder="E-1001" />
         </div>
-        <button type="button" id="scanBtn">Scan receipt</button>
+        <button type="button" id="scanBtn">Scan with AI agent</button>
       </div>
       <div id="scanPreview" class="scan-preview" style="display:none;margin-top:0.75rem;"></div>
       <div id="status"></div>
@@ -215,10 +215,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       const data = await res.json();
       if (!res.ok) { setStatus(data.detail || "Scan failed", true); return; }
       document.getElementById("scanPreview").style.display = "block";
+      const e = data.entry;
       document.getElementById("scanPreview").textContent =
-        "Vendor: " + (data.entry.vendor || "—") + "\\nAmount: $" + data.entry.amount +
-        "\\nCategory: " + data.entry.category + "\\nConfidence: " + data.entry.scan_confidence;
-      setStatus("Receipt scanned and added as " + data.entry.expense_id);
+        "Method: " + (e.analysis_method || "—") + "\\n" +
+        "Vendor: " + (e.vendor || "—") + "\\nAmount: $" + e.amount +
+        "\\nCategory: " + e.category + "\\nConfidence: " + (e.scan_confidence || "—") +
+        (e.agent_reasoning ? "\\n\\nAgent: " + e.agent_reasoning : "");
+      setStatus("Receipt analyzed by agent → " + e.expense_id);
       refreshTable();
     };
 
@@ -277,7 +280,21 @@ def home() -> str:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok"}
+    from .llm_client import is_llm_configured, default_model
+
+    return {
+        "status": "ok",
+        "llm_configured": is_llm_configured(),
+        "llm_model": default_model() if is_llm_configured() else None,
+        "agents": [
+            "ReceiptAnalysisAgent (LLM)",
+            "ValidateAgent",
+            "RetrievePolicyAgent",
+            "DecideAgent",
+            "ExplainAgent (LLM when configured)",
+            "SummarizeAgent",
+        ],
+    }
 
 
 @app.get("/api/session/{session_id}/entries")
@@ -320,7 +337,7 @@ async def scan_receipt(
     receipt_path = work_dir / Path(receipt.filename).name
     try:
         receipt_path.write_bytes(await receipt.read())
-        scanned = scan_receipt_file(receipt_path)
+        scanned = scan_receipt_file(receipt_path, employee_id=employee_id)
         entry = {
             "expense_id": "",
             "employee_id": employee_id or scanned.get("employee_id", "E-SCAN"),
@@ -337,9 +354,15 @@ async def scan_receipt(
             "vendor": scanned.get("vendor", ""),
             "receipt_filename": scanned.get("receipt_filename", ""),
             "scan_confidence": scanned.get("scan_confidence", ""),
+            "analysis_method": scanned.get("analysis_method", ""),
+            "agent_reasoning": scanned.get("agent_reasoning", ""),
         }
         saved = add_entry(session_id, entry)
-        return {"entry": saved, "raw_text_preview": scanned.get("raw_text", "")[:500]}
+        return {
+            "entry": saved,
+            "raw_text_preview": scanned.get("raw_text", "")[:500],
+            "analysis_method": scanned.get("analysis_method"),
+        }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     finally:

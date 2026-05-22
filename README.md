@@ -20,11 +20,19 @@ This project implements a modular **five-agent compliance pipeline** for reviewi
 
 ## Agent architecture
 
+0. **Receipt Analysis Agent** (LLM): reads receipt image/PDF + OCR text, extracts vendor, amount, category, date, and reasoning. Falls back to OCR rules if no API key.
 1. **Validate Agent**: normalizes and validates expense rows.
 2. **Retrieve Policy Agent**: extracts policy text and compiles rules.
 3. **Decide Agent**: evaluates each expense against policy rules.
-4. **Explain Agent**: creates human-readable rationale.
+4. **Explain Agent** (LLM when configured): plain-English rationale for each decision.
 5. **Summarize Agent**: aggregates outcomes and creates manager context.
+
+### Enable the LLM agents
+
+1. Copy `.env.example` to `.env` (local) or add variables in **Railway → Variables**.
+2. Set `OPENAI_API_KEY` (or `LLM_API_KEY` + optional `LLM_BASE_URL` for compatible providers).
+3. Optional: `LLM_MODEL=gpt-4o-mini`, `USE_LLM_VISION=true`.
+4. Restart the app. Check `/health` — `llm_configured` should be `true`.
 
 ## Quick start
 

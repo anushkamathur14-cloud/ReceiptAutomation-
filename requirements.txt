@@ -8,3 +8,4 @@ python-multipart
 pillow
 pytesseract
 openpyxl
+openai>=1.0.0
